@@ -1,4 +1,4 @@
-# Bux flake for proton-drive
+# Nix flake for proton-drive
 
 Packages the third-party [Proton Drive CLI](https://proton.me/drive/download#desktop) binary
 as a Nix flake.
