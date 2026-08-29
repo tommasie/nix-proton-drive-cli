@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  nix-check:
+    name: nix build / nix run (x86_64-linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # ubuntu-latest (24.04) restricts unprivileged user namespaces via
+      # AppArmor by default, which breaks bubblewrap (used by buildFHSEnv).
+      # See: https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces
+      - name: Allow unprivileged user namespaces (needed for bubblewrap/FHS env)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+
+      - name: nix build
+        run: nix build .#default --print-build-logs
+
+      - name: nix run
+        run: nix run .#default -- --version
