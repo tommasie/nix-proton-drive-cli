@@ -1,0 +1,102 @@
+name: Update Proton Drive CLI version
+
+on:
+  schedule:
+    - cron: "0 20 * * *" # daily at 20:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Python dependencies
+        run: pip install --quiet requests beautifulsoup4 packaging
+
+      - name: Check for a newer Proton Drive CLI version
+        id: check
+        run: python3 scripts/check_proton_drive_update.py
+
+      - name: Convert sha512 to Nix SRI hash
+        if: steps.check.outputs.should_update == 'true'
+        id: hash
+        run: |
+          sri=$(nix hash convert --hash-algo sha512 "${{ steps.check.outputs.sha512 }}")
+          echo "sri=$sri" >> "$GITHUB_OUTPUT"
+
+      - name: Update flake.nix
+        if: steps.check.outputs.should_update == 'true'
+        env:
+          NEW_VERSION: ${{ steps.check.outputs.new_version }}
+          NEW_HASH: ${{ steps.hash.outputs.sri }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          import re
+          from pathlib import Path
+
+          new_version = os.environ["NEW_VERSION"]
+          new_hash = os.environ["NEW_HASH"]
+
+          path = Path("flake.nix")
+          content = path.read_text()
+
+          content, n = re.subn(
+              r'(version\s*=\s*")[^"]+(")',
+              rf'\g<1>{new_version}\g<2>',
+              content,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit("Failed to update `version` in flake.nix")
+
+          content, n = re.subn(
+              r'(x86_64-linux\s*=\s*\{\s*urlPlatform\s*=\s*"linux-x64";\s*hash\s*=\s*")[^"]+(")',
+              rf'\g<1>{new_hash}\g<2>',
+              content,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit("Failed to update x86_64-linux hash in flake.nix")
+
+          path.write_text(content)
+          EOF
+
+      - name: Verify the updated flake builds
+        if: steps.check.outputs.should_update == 'true'
+        run: nix build .#default --print-build-logs
+
+      - name: Create pull request
+        if: steps.check.outputs.should_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump proton-drive to ${{ steps.check.outputs.new_version }}"
+          title: "chore: bump proton-drive to ${{ steps.check.outputs.new_version }}"
+          body: |
+            Automated update: Proton Drive CLI ${{ steps.check.outputs.new_version }} was published.
+
+            - Version: `${{ steps.check.outputs.new_version }}`
+            - linux/x64 sha512: `${{ steps.check.outputs.sha512 }}`
+            - Nix SRI hash: `${{ steps.hash.outputs.sri }}`
+
+            Only the `x86_64-linux` entry was updated automatically; other
+            platform entries should be reviewed and bumped manually.
+          branch: update-proton-drive-${{ steps.check.outputs.new_version }}
+          delete-branch: true
+          labels: |
+            automated-pr
+            dependencies
