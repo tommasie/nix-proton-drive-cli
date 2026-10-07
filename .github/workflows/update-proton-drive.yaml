@@ -43,38 +43,7 @@ jobs:
         env:
           NEW_VERSION: ${{ steps.check.outputs.new_version }}
           NEW_HASH: ${{ steps.hash.outputs.sri }}
-        run: |
-          python3 - <<'EOF'
-          import os
-          import re
-          from pathlib import Path
-
-          new_version = os.environ["NEW_VERSION"]
-          new_hash = os.environ["NEW_HASH"]
-
-          path = Path("flake.nix")
-          content = path.read_text()
-
-          content, n = re.subn(
-              r'(version\s*=\s*")[^"]+(")',
-              rf'\g<1>{new_version}\g<2>',
-              content,
-              count=1,
-          )
-          if n != 1:
-              raise SystemExit("Failed to update `version` in flake.nix")
-
-          content, n = re.subn(
-              r'(x86_64-linux\s*=\s*\{\s*urlPlatform\s*=\s*"linux-x64";\s*hash\s*=\s*")[^"]+(")',
-              rf'\g<1>{new_hash}\g<2>',
-              content,
-              count=1,
-          )
-          if n != 1:
-              raise SystemExit("Failed to update x86_64-linux hash in flake.nix")
-
-          path.write_text(content)
-          EOF
+        run: python3 scripts/flake_updater.py
 
       - name: Verify the updated flake builds
         if: steps.check.outputs.should_update == 'true'
