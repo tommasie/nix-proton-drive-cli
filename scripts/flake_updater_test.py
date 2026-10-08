@@ -13,20 +13,25 @@ class FlakeUpdaterTest(unittest.TestCase):
 
         outputs =
             { self, nixpkgs }:
+               { self, nixpkgs, ... }@inputs:
                 let
-                    version = "0.8.0";
-                    system = "x86_64-linux";
-                    pkgs = import nixpkgs { inherit system; };
+                    inherit (nixpkgs) lib;
 
-                    proton-drive-binary = pkgs.fetchurl {
-                        url = "url";
-                        hash = "sha512-1234";
+                    version = "0.8.0";
+
+                    supportedSystems = [
+                        "x86_64-linux"
+                    ];
+
+                    systemAttrs = {
+                        x86_64-linux = {
+                        proton-system = "linux-x64";
+                        hash =
+                            "sha512-1234";
+                        };
                     };
                 in
                     {
-                        packages.${system}.default = pkgs.buildFHSEnv {
-                        # content
-                        };
                     }
     '''
 
@@ -45,8 +50,7 @@ class FlakeUpdaterTest(unittest.TestCase):
         new_hash = "sha512-5678"
         try:
             content = flake_updater.update_hash(flake_copy, new_hash)
-            print(content)
-            self.assertTrue(f'hash = "{new_hash}";' in content)
+            self.assertIn(new_hash, content)
         except SystemExit:
             self.fail("Unexpected exception raised")
         
