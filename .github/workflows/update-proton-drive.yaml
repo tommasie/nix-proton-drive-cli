@@ -45,6 +45,10 @@ jobs:
           NEW_HASH: ${{ steps.hash.outputs.sri }}
         run: python3 scripts/flake_updater.py
 
+      - name: Format flake
+        if: steps.check.outputs.should_update == 'true'
+        run: nix-shell -p nixfmt --run "nixfmt flake.nix"
+
       - name: Verify the updated flake builds
         if: steps.check.outputs.should_update == 'true'
         run: nix build .#default --print-build-logs
