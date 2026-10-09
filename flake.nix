@@ -14,12 +14,17 @@
 
       supportedSystems = [
         "x86_64-linux"
+        "aarch64-linux"
       ];
 
       systemAttrs = {
         x86_64-linux = {
           proton-system = "linux-x64";
           hash = "sha512-NTMCW6aa4RK2Tj4B+8wa0GiBNqQEP2z2pyiGln2F/c2ewjVHnC4RMXFhS+UiW/upNCdQmgXKWqYHHZJPp+kcqA==";
+        };
+        "aarch64-linux" = {
+          proton-system = "linux-arm64";
+          hash = "sha512-yNWmsXTlfwbQXLVINAC5lj+vWOdDtrM3Brtz7P9xgEf/zmtDmZQlW5S1sia5DS6RvvdBjslsHD9di/ObbNATIQ==";
         };
       };
 
